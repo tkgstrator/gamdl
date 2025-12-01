@@ -18,13 +18,13 @@ A command-line app for downloading Apple Music songs, music videos and post vide
 
 The following tools are also included:
 
-- MP4Box
+- **MP4Box**
     - Required for mp4box remux mode, music videos, and experimental codecs
-- mp4decrypt
+- **[mp4decrypt](https://www.bento4.com/downloads/)**
     - Required for mp4box remux mode
-- N_m3u8DL-RE
+- **N_m3u8DL-RE**
     - Required for nm3u8dlre download mode, which is faster than the default downloader
-- wrapper & amdecrypt
+- **wrapper & amdecrypt**
     - For downloading songs in ALAC and other experimental codecs without API limitations
 
 ## Installation
