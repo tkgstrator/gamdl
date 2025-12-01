@@ -191,3 +191,33 @@ Use ISO 639-1 language codes (e.g., `en-US`, `es-ES`, `ja-JP`, `pt-BR`). Don't a
 
 - `best` - Up to 1080p with AAC 256kbps
 - `ask` - Interactive quality selection
+
+## Use Wrapper
+
+Remove comment out `.devcontainer/compose.yaml`.
+
+```diff
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ../:/home/vscode/app:cached
+      - venv:/home/vscode/.venv
+      - ../config.ini:/home/vscode/.gamdl/config.ini
+    tty: true
+    stdin_open: true
+
++  wrapper:
++    image: tkgling/wrapper:23
++    volumes:
++      - ../rootfs/data:/app/rootfs/data
++    environment:
++      USERNAME: $USERNAME
++      PASSWORD: $PASSWORD
++    restart: unless-stopped
+
+volumes:
+  venv:
+```
