@@ -13,8 +13,8 @@ A command-line app for downloading Apple Music songs, music videos and post vide
 
 ## Prerequisites
 
-- Docker
-- VSCode
+- **[Docker](https://www.docker.com/)**
+- **[VSCode](https://code.visualstudio.com/)**
 
 The following tools are also included:
 
