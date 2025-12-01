@@ -1,0 +1,11 @@
+services:
+  gamdl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GAMDL_VERSION: 2.8
+        PYTHON_VERSION: 3.14
+        BASE_IMAGE: bookworm-slim
+    tty: true
+    stdin_open: true
