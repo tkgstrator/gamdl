@@ -16,7 +16,7 @@ A command-line app for downloading Apple Music songs, music videos and post vide
 - Docker
 - VSCode
 
-Including below tools.
+The following tools are also included:
 
 - MP4Box
     - Required for mp4box remux mode, music videos, and experimental codecs
@@ -144,7 +144,7 @@ The file is created automatically on first run. Command-line arguments override 
 
 ### Metadata Language
 
-Use ISO 639-1 language codes (e.g., `en-US`, `es-ES`, `ja-JP`, `pt-BR`). Don't always work for music videos.
+Use ISO 639-1 language codes (e.g., `en-US`, `es-ES`, `ja-JP`, `pt-BR`). May not work for all music videos.
 
 ### Song Codecs
 
@@ -194,7 +194,7 @@ Use ISO 639-1 language codes (e.g., `en-US`, `es-ES`, `ja-JP`, `pt-BR`). Don't a
 
 ## Use Wrapper
 
-To download high bitrate audio file without API limitation, `use_wrapper` must be `true`, `wrapper` server and `amdecrypt`.
+To download high bitrate audio files without API limitations, set `use_wrapper` to `true` and configure the `wrapper` server with `amdecrypt`.
 
 Add wrapper container settings in `.devcontainer/compose.yaml`.
 
@@ -224,11 +224,11 @@ volumes:
   venv:
 ```
 
-and copy `.env.example` to `.env`, write `USERNAME` and `PASSWORD` of your Apple ID.
+Then copy `.env.example` to `.env` and enter your Apple ID credentials.
 
 ```zsh
 USERNAME=<#YOUR APPLE ID EMAIL>
 PASSWORD=<#YOUR PASSWORD>
 ```
 
-> Require active Apple Music subscription.
+> Requires an active Apple Music subscription.
