@@ -53,7 +53,7 @@ RUN ./configure --static-mp4box
 RUN make -j$(nproc)
 RUN make install
 
-FROM mcr.microsoft.com/devcontainers/base:2.1.2-bookworm
+FROM mcr.microsoft.com/devcontainers/python:3.10-bookworm
 
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
 COPY --from=build-go /usr/local/bin/amdecrypt /usr/local/bin
