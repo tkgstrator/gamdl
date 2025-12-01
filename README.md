@@ -194,7 +194,7 @@ Use ISO 639-1 language codes (e.g., `en-US`, `es-ES`, `ja-JP`, `pt-BR`). Don't a
 
 ## Use Wrapper
 
-Remove comment out `.devcontainer/compose.yaml`.
+Add wrapper container settings in `.devcontainer/compose.yaml`.
 
 ```diff
 services:
@@ -221,3 +221,5 @@ services:
 volumes:
   venv:
 ```
+
+and copy `.env.example` to `.env`, write `USERNAME` and `PASSWORD` of your Apple ID.
