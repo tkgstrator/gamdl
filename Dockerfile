@@ -76,6 +76,12 @@ FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${BASE_IMAGE}
 
 ARG GAMDL_VERSION
 
+RUN \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  apt-get update && apt-get install -y \
+  ffmpeg
+
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
 COPY --from=build-go /usr/local/bin/amdecrypt /usr/local/bin
 COPY --from=build-python /usr/local/bin/mp4decrypt /usr/local/bin/
