@@ -9,6 +9,7 @@ ARG BASE_IMAGE=bookworm
 FROM mcr.microsoft.com/devcontainers/dotnet:9.0-bookworm AS build-dotnet
 
 ARG N_M3U8DL_RE_VERSION
+ARG TARGETARCH
 
 RUN \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -22,7 +23,7 @@ RUN git clone https://github.com/nilaoda/N_m3u8DL-RE.git && \
     cd N_m3u8DL-RE && git checkout ${N_M3U8DL_RE_VERSION}
 WORKDIR /N_m3u8DL-RE
 RUN dotnet publish src/N_m3u8DL-RE \
-    -r linux-arm64 \
+    -r linux-${TARGETARCH} \
     -c Release \
     -p:StripSymbols=true \
     -p:CppCompilerAndLinker=clang-14 \

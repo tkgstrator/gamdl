@@ -53,6 +53,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            # For default (2.8-3.10-bookworm-slim), also tag as latest
+            type=raw,value=latest,enable=${{ matrix.gamdl_version == '2.8' && matrix.python_version == '3.10' && matrix.base_image == 'bookworm-slim' && github.ref == 'refs/heads/master' }}
             # gamdl version + python version + base image tag
             type=raw,value=${{ matrix.gamdl_version }}-${{ matrix.python_version }}-${{ matrix.base_image }}
 
