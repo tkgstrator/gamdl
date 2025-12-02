@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ../:/home/vscode/app:cached
-      - venv:/home/vscode/.venv
       - ../config.ini:/home/vscode/.gamdl/config.ini
+      - venv:/home/vscode/app/.venv
     tty: true
     stdin_open: true
 
@@ -23,3 +23,5 @@ services:
 
 volumes:
   venv:
+    name: venv
+    driver: local

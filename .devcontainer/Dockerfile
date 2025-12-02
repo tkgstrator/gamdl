@@ -59,6 +59,3 @@ COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
 COPY --from=build-go /usr/local/bin/amdecrypt /usr/local/bin
 COPY --from=build-python /usr/local/bin/mp4decrypt /usr/local/bin/
 COPY --from=build-python /usr/local/bin/MP4Box /usr/local/bin/
-
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-RUN uv add gamdl
