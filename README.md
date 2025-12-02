@@ -218,9 +218,6 @@ services:
 +      USERNAME: $USERNAME
 +      PASSWORD: $PASSWORD
 +    restart: unless-stopped
-
-volumes:
-  venv:
 ```
 
 Then copy `.env.example` to `.env` and enter your Apple ID credentials.
