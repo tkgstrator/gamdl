@@ -206,7 +206,6 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ../:/home/vscode/app:cached
-      - venv:/home/vscode/.venv
       - ../config.ini:/home/vscode/.gamdl/config.ini
     tty: true
     stdin_open: true
