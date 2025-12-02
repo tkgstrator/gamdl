@@ -10,6 +10,11 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag (e.g., v2.8)'
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -35,8 +40,14 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
+          # workflow_dispatchの場合は入力値を使用、それ以外はタグから取得
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG=${GITHUB_REF#refs/tags/}
+          fi
           # タグからvを除いたバージョンを取得 (例: v2.8 -> 2.8)
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${TAG#v}
           echo "gamdl_version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
