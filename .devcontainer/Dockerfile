@@ -1,4 +1,5 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build-dotnet
+# N_m3u8DL-RE
+FROM dhi.io/dotnet:10-sdk AS build-dotnet
 
 ARG TARGETARCH
 
@@ -11,7 +12,6 @@ RUN \
 WORKDIR /
 RUN git clone https://github.com/nilaoda/N_m3u8DL-RE.git --depth 1
 WORKDIR /N_m3u8DL-RE
-
 # Fix C# 14 breaking change: 'this' not allowed in nameof() in attributes
 RUN sed -i 's/nameof(this\.\([a-zA-Z]*\))/nameof(\1)/g' \
     src/N_m3u8DL-RE.Parser/StreamExtractor.cs
@@ -29,7 +29,8 @@ RUN \
     -p:CppCompilerAndLinker=clang \
     -o /usr/local/bin
 
-FROM mcr.microsoft.com/devcontainers/go:2.0.5-1.25-bookworm AS build-go
+# FROM mcr.microsoft.com/devcontainers/go:2.0.5-1.25-bookworm AS build-go
+FROM golang:1.25.8-bookworm AS build-go
 
 # amdecrypt
 WORKDIR /
@@ -38,7 +39,8 @@ WORKDIR /amdecrypt
 RUN go mod tidy
 RUN go build -o /usr/local/bin/amdecrypt main.go
 
-FROM mcr.microsoft.com/devcontainers/python:3.0.2-3.10-bookworm AS build-python
+# FROM mcr.microsoft.com/devcontainers/python:dev-3.12 AS build-python
+FROM python:3.12 AS build-python
 
 RUN \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -65,7 +67,8 @@ RUN ./configure --static-mp4box
 RUN make -j$(nproc)
 RUN make install
 
-FROM mcr.microsoft.com/devcontainers/python:3.10-bookworm
+# FROM mcr.microsoft.com/devcontainers/python:3.10-bookworm
+FROM mcr.microsoft.com/devcontainers/base:dev-ubuntu22.04
 
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
 COPY --from=build-go /usr/local/bin/amdecrypt /usr/local/bin

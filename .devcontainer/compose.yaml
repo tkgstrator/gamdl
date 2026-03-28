@@ -10,18 +10,6 @@ services:
     tty: true
     stdin_open: true
 
-  # wrapper:
-  #   image: tkgling/wrapper:23
-  #   volumes:
-  #     - ../rootfs/data:/app/rootfs/data
-  #   environment:
-  #     USERNAME: $USERNAME
-  #     PASSWORD: $PASSWORD
-  #   restart: unless-stopped
-  #   tty: true
-  #   stdin_open: true
-
 volumes:
   venv:
-    name: venv
     driver: local
