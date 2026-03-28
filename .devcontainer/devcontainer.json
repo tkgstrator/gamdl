@@ -16,16 +16,29 @@
   },
   "postAttachCommand": "/bin/zsh .devcontainer/postAttachCommand.sh",
   "postCreateCommand": "/bin/zsh .devcontainer/postCreateCommand.sh",
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "mounts": [
+    "source=${env:HOME}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached,readonly",
+    "source=${env:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+    "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly"
+  ],
+  "remoteEnv": {
+    "UV_LINK_MODE": "copy",
+    "WAKATIME_API_KEY": "${localEnv:WAKATIME_API_KEY}"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
+        "Anthropic.claude-code",
         "EditorConfig.EditorConfig",
         "GitHub.copilot",
-        "GitHub.copilot-chat",
         "PKief.material-icon-theme",
         "antfu.file-nesting",
         "charliermarsh.ruff",
         "dbaeumer.vscode-eslint",
+        "eamodio.gitlens",
         "editorconfig.editorconfig",
         "esbenp.prettier-vscode",
         "ms-python.black-formatter",
