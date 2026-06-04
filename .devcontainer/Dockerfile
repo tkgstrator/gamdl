@@ -29,48 +29,9 @@ RUN \
     -p:CppCompilerAndLinker=clang \
     -o /usr/local/bin
 
-# FROM mcr.microsoft.com/devcontainers/go:2.0.5-1.25-bookworm AS build-go
-FROM golang:1.25.8-bookworm AS build-go
-
-# amdecrypt
-WORKDIR /
-RUN git clone https://github.com/glomatico/amdecrypt.git --depth 1
-WORKDIR /amdecrypt
-RUN go mod tidy
-RUN go build -o /usr/local/bin/amdecrypt main.go
-
-# FROM mcr.microsoft.com/devcontainers/python:dev-3.12 AS build-python
-FROM python:3.12 AS build-python
-
-RUN \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    apt-get update && apt-get install -y \
-    cmake
-
-# mp4decrypt
-WORKDIR /
-RUN git clone https://github.com/axiomatic-systems/Bento4.git --depth 1
-WORKDIR /Bento4
-RUN mkdir cmakebuild
-WORKDIR /Bento4/cmakebuild
-RUN cmake -DCMAKE_BUILD_TYPE=Release ..
-RUN make
-RUN make install
-
-# mp4box
-WORKDIR /
-RUN git clone https://github.com/gpac/gpac.git --depth 1
-WORKDIR /gpac
-RUN ls -la
-RUN ./configure --static-mp4box
-RUN make -j$(nproc)
-RUN make install
-
 # FROM mcr.microsoft.com/devcontainers/python:3.10-bookworm
 FROM mcr.microsoft.com/devcontainers/base:dev-ubuntu22.04
 
+# gamdl 3.6+ does native muxing/decryption, so mp4decrypt/MP4Box/amdecrypt are no longer needed.
+# ffmpeg (for the N_m3u8DL-RE download mode) is provided via the ffmpeg-apt-get devcontainer feature.
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
-COPY --from=build-go /usr/local/bin/amdecrypt /usr/local/bin
-COPY --from=build-python /usr/local/bin/mp4decrypt /usr/local/bin/
-COPY --from=build-python /usr/local/bin/MP4Box /usr/local/bin/
