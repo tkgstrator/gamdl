@@ -1,8 +1,5 @@
-ARG GAMDL_VERSION=2.8
+ARG GAMDL_VERSION=3.7.3
 ARG N_M3U8DL_RE_VERSION=v0.5.1-beta
-ARG AMDECRYPT_VERSION=0.0.1
-ARG BENTO4_VERSION=v1.6.0-641
-ARG GPAC_VERSION=v2.4.0
 ARG PYTHON_VERSION=3.10
 ARG BASE_IMAGE=bookworm
 
@@ -37,53 +34,12 @@ RUN \
     -p:CppCompilerAndLinker=clang \
     -o /usr/local/bin
 
-FROM golang:1.25.8-bookworm AS build-go
-
-ARG AMDECRYPT_VERSION
-
-# amdecrypt
-WORKDIR /
-RUN git clone https://github.com/glomatico/amdecrypt.git && \
-    cd amdecrypt && git checkout ${AMDECRYPT_VERSION}
-WORKDIR /amdecrypt
-RUN go mod tidy
-RUN go build -o /usr/local/bin/amdecrypt main.go
-
-FROM python:3.12 AS build-python
-
-ARG BENTO4_VERSION
-ARG GPAC_VERSION
-
-RUN \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    apt-get update && apt-get install -y \
-    cmake
-
-# mp4decrypt
-WORKDIR /
-RUN git clone https://github.com/axiomatic-systems/Bento4.git && \
-    cd Bento4 && git checkout ${BENTO4_VERSION}
-WORKDIR /Bento4
-RUN mkdir cmakebuild
-WORKDIR /Bento4/cmakebuild
-RUN cmake -DCMAKE_BUILD_TYPE=Release ..
-RUN make
-RUN make install
-
-# mp4box
-WORKDIR /
-RUN git clone https://github.com/gpac/gpac.git && \
-    cd gpac && git checkout ${GPAC_VERSION}
-WORKDIR /gpac
-RUN ./configure --static-mp4box
-RUN make -j$(nproc)
-RUN make install
-
 FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${BASE_IMAGE}
 
 ARG GAMDL_VERSION
 
+# ffmpeg is still required when using the N_m3u8DL-RE download mode.
+# gamdl 3.6+ does native muxing/decryption, so mp4decrypt/MP4Box/amdecrypt are no longer needed.
 RUN \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -91,9 +47,6 @@ RUN \
   ffmpeg
 
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
-COPY --from=build-go /usr/local/bin/amdecrypt /usr/local/bin
-COPY --from=build-python /usr/local/bin/mp4decrypt /usr/local/bin/
-COPY --from=build-python /usr/local/bin/MP4Box /usr/local/bin/
 
 WORKDIR /app
 RUN uv pip install --system "gamdl==${GAMDL_VERSION}"
