@@ -1,0 +1,6 @@
+# hadolint config — keep CI honest while accepting Debian/Ubuntu rolling apt.
+ignored:
+  # DL3008: Pin versions in apt-get install.
+  # Debian/Ubuntu base images already pin the package set at a snapshot, and
+  # bookworm/trixie security updates would invalidate any version we pin here.
+  - DL3008
