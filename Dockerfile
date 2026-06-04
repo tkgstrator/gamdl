@@ -43,7 +43,7 @@ ARG GAMDL_VERSION
 RUN \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   --mount=type=cache,target=/var/cache/apt,sharing=locked \
-  apt-get update && apt-get install -y \
+  apt-get update && apt-get install -y --no-install-recommends \
   ffmpeg
 
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
