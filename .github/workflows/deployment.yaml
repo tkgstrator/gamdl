@@ -35,30 +35,30 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Extract version from tag
         id: version
         run: |
-          # workflow_dispatchの場合は入力値を使用、それ以外はタグから取得
+          # workflow_dispatch なら入力値、それ以外は ref のタグ
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.tag }}"
           else
             TAG=${GITHUB_REF#refs/tags/}
           fi
-          # タグからvを除いたバージョンを取得 (例: v2.8 -> 2.8)
+          # v プレフィックスを外す (例: v3.7.3 -> 3.7.3)
           VERSION=${TAG#v}
-          echo "gamdl_version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "gamdl_version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -66,17 +66,17 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # For default (3.10-bookworm-slim), also tag as latest
+            # default matrix (3.10-bookworm-slim) のときだけ latest も付与
             type=raw,value=latest,enable=${{ matrix.python_version == '3.10' && matrix.base_image == 'bookworm-slim' }}
-            # gamdl version + python version + base image tag
+            # gamdl version + python version + base image
             type=raw,value=${{ steps.version.outputs.gamdl_version }}-${{ matrix.python_version }}-${{ matrix.base_image }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
