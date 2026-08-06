@@ -40,6 +40,7 @@
         "EditorConfig.EditorConfig",
         "GitHub.copilot",
         "PKief.material-icon-theme",
+        "WakaTime.vscode-wakatime",
         "antfu.file-nesting",
         "charliermarsh.ruff",
         "dbaeumer.vscode-eslint",
