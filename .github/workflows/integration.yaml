@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - develop
   pull_request:
     branches:
       - master
+      - develop
   workflow_dispatch:
 
 jobs:
@@ -56,14 +58,43 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Sync project (lockfile check)
-        run: uv sync --frozen
+        run: uv sync --locked
 
       - name: Format check (ruff)
-        run: uvx ruff format --check .
+        run: uv run --locked ruff format --check --exclude gamdl .
 
       - name: Lint (ruff)
-        run: uvx ruff check .
+        run: |
+          uv run --locked ruff check --exclude gamdl .
+          # Keep the imported upstream style; check its syntax and name errors.
+          uv run --locked ruff check --isolated gamdl --select E9,F63,F7,F82
+
+  test-native:
+    name: Rust tests and CLI smoke test (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.14"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: dtolnay/rust-toolchain@stable
+      - run: uv sync --locked
+      - run: uv run --locked python -m gamdl --help
+      - name: Test native extension
+        run: |
+          export PYO3_PYTHON="$PWD/.venv/bin/python"
+          LD_LIBRARY_PATH="$(uv run --locked python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export LD_LIBRARY_PATH
+          cargo test --locked --manifest-path gamdl/downloader/ammuxer/Cargo.toml
 
   build-smoke:
     name: docker build smoke (no push)
