@@ -1,8 +1,27 @@
 #!/bin/zsh
+set -e
 
-sudo chown -R vscode:vscode /home/vscode/app/.venv
-sudo chown -R vscode:vscode /home/vscode/.cache
+# Named volumes (venv, uv-cache in compose.yaml) are created root-owned because the
+# image has no such directory to inherit ownership from.
+sudo chown -R $(whoami):$(whoami) .venv 2>/dev/null || true
+sudo chown -R $(whoami):$(whoami) ~/.cache/uv 2>/dev/null || true
 
-uv sync
-uv venv /home/vscode/app/.venv
-uv pip install gamdl
+# Silence direnv output.
+# In direnv 2.36+, DIRENV_LOG_FORMAT env var is ignored unless direnv.toml exists.
+# See: https://github.com/direnv/direnv/issues/1418
+mkdir -p ~/.config/direnv
+cat > ~/.config/direnv/direnv.toml <<'EOF'
+[global]
+log_format = ""
+hide_env_diff = true
+EOF
+
+# Install Python declared in .python-version / pyproject.toml, then sync deps.
+# `uv sync` creates .venv if it does not exist yet.
+if [ -f pyproject.toml ]; then
+  if [ -f uv.lock ]; then
+    uv sync --frozen
+  else
+    uv sync
+  fi
+fi
