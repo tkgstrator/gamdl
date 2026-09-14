@@ -1,4 +1,3 @@
-ARG GAMDL_VERSION=3.7.3
 ARG N_M3U8DL_RE_VERSION=v0.5.1-beta
 ARG PYTHON_VERSION=3.10
 ARG BASE_IMAGE=bookworm
@@ -34,9 +33,17 @@ RUN \
     -p:CppCompilerAndLinker=clang \
     -o /usr/local/bin
 
-FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${BASE_IMAGE}
+FROM rust:1-bookworm AS build-python
 
-ARG GAMDL_VERSION
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ARG PYTHON_VERSION
+WORKDIR /src
+COPY pyproject.toml uv.lock README.md LICENSE ./
+COPY gamdl/ ./gamdl/
+RUN uv build --python "${PYTHON_VERSION}" --wheel --out-dir /wheels && \
+    uv export --frozen --no-dev --no-emit-project --output-file /wheels/requirements.txt
+
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${BASE_IMAGE}
 
 # ffmpeg is still required when using the N_m3u8DL-RE download mode.
 # gamdl 3.6+ does native muxing/decryption, so mp4decrypt/MP4Box/amdecrypt are no longer needed.
@@ -49,6 +56,7 @@ RUN \
 COPY --from=build-dotnet /usr/local/bin/N_m3u8DL-RE /usr/local/bin/
 
 WORKDIR /app
-RUN uv pip install --system "gamdl==${GAMDL_VERSION}"
+RUN --mount=type=bind,from=build-python,source=/wheels,target=/wheels \
+    uv pip install --system -r /wheels/requirements.txt /wheels/*.whl
 
 CMD ["/bin/bash"]

@@ -29,8 +29,7 @@ RUN \
     -p:CppCompilerAndLinker=clang \
     -o /usr/local/bin
 
-# FROM mcr.microsoft.com/devcontainers/python:3.10-bookworm
-FROM mcr.microsoft.com/devcontainers/base:dev-ubuntu22.04
+FROM mcr.microsoft.com/devcontainers/base:dev-ubuntu24.04
 
 # gamdl 3.6+ does native muxing/decryption, so mp4decrypt/MP4Box/amdecrypt are no longer needed.
 # ffmpeg (for the N_m3u8DL-RE download mode) is provided via the ffmpeg-apt-get devcontainer feature.

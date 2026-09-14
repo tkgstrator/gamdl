@@ -1,15 +1,31 @@
 services:
   app:
     build:
-      context: ./
+      context: .
       dockerfile: Dockerfile
     volumes:
+      - venv:/home/vscode/app/.venv
+      - uv-cache:/home/vscode/.cache/uv
       - ../:/home/vscode/app:cached
       - ../config.ini:/home/vscode/.gamdl/config.ini
-      - venv:/home/vscode/app/.venv
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
     tty: true
     stdin_open: true
 
+  wrapper:
+    image: ghcr.io/tkgstrator/wrapper:v2.0.0
+    volumes:
+      - ./rootfs/data:/app/rootfs/data:cached
+    cap_add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    restart: unless-stopped
+
 volumes:
   venv:
-    driver: local
+  uv-cache:

@@ -234,12 +234,8 @@ pyrightconfig.json
 ### venv ###
 # Virtualenv
 # http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
-[Bb]in
-[Ii]nclude
-[Ll]ib
-[Ll]ib64
-[Ll]ocal
-[Ss]cripts
+# .venv/ is ignored above; the bare [Bb]in / [Ll]ib / [Ss]cripts entries that
+# used to live here caught the repository's own scripts/ directory.
 pyvenv.cfg
 pip-selfcheck.json
 
@@ -282,6 +278,15 @@ gamdl_temp*/
 
 # Credentials
 cookies.txt
+
+# Local URL lists fed to `gamdl --read-urls-as-txt`
+items.txt
+
+# Downloaded media output from `gamdl`
+content/
+
+# Local Claude Code settings
+.claude/settings.local.json
 
 # Copilot Instructions
 **/.copilot-instructions.md
