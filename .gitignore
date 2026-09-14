@@ -279,5 +279,14 @@ gamdl_temp*/
 # Credentials
 cookies.txt
 
+# Local URL lists fed to `gamdl --read-urls-as-txt`
+items.txt
+
+# Downloaded media output from `gamdl`
+content/
+
+# Local Claude Code settings
+.claude/settings.local.json
+
 # Copilot Instructions
 **/.copilot-instructions.md

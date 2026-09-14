@@ -14,6 +14,18 @@ services:
     tty: true
     stdin_open: true
 
+  wrapper:
+    image: ghcr.io/tkgstrator/wrapper:v2.0.0
+    volumes:
+      - ./rootfs/data:/app/rootfs/data:cached
+    cap_add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    restart: unless-stopped
+
 volumes:
   venv:
   uv-cache:

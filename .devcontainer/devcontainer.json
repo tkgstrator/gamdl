@@ -29,6 +29,7 @@
 		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind,consistency=cached"
 	],
 	"features": {
+		"ghcr.io/devcontainers/features/rust:1": {},
 		"ghcr.io/devcontainers/features/common-utils:2": {
 			"configureZshAsDefaultShell": true
 		},

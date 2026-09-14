@@ -25,7 +25,3 @@ if [ -f pyproject.toml ]; then
     uv sync
   fi
 fi
-
-# gamdl itself is not a project dependency (the shipped image installs a pinned
-# version at build time), so pull the CLI into the dev venv separately.
-uv pip install gamdl

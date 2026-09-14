@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag (e.g., v3.7.3)'
+        description: 'Tag (e.g., v3.8.5)'
         required: true
         type: string
 
@@ -32,18 +32,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Extract version from tag
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate source version against tag
         id: version
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          # workflow_dispatch なら入力値、それ以外は ref のタグ
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          else
-            TAG=${GITHUB_REF#refs/tags/}
-          fi
-          # v プレフィックスを外す (例: v3.7.3 -> 3.7.3)
-          VERSION=${TAG#v}
-          echo "gamdl_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          python3 - <<'PYTHON'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          tag_version = os.environ["RELEASE_TAG"].removeprefix("v")
+          if tag_version != version:
+              raise SystemExit(f"Tag version {tag_version!r} does not match source version {version!r}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"gamdl_version={version}\n")
+          PYTHON
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -78,7 +87,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GAMDL_VERSION=${{ steps.version.outputs.gamdl_version }}
             PYTHON_VERSION=${{ matrix.python_version }}
             BASE_IMAGE=${{ matrix.base_image }}
           cache-from: type=gha

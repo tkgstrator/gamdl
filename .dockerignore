@@ -19,5 +19,7 @@ htmlcov
 .DS_Store
 Dockerfile
 .dockerignore
-README.md
 CHANGELOG.md
+
+**/target
+**/*.so
