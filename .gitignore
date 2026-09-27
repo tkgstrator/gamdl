@@ -280,7 +280,7 @@ gamdl_temp*/
 cookies.txt
 
 # Local URL lists fed to `gamdl --read-urls-as-txt`
-items.txt
+items*.txt
 
 # Downloaded media output from `gamdl`
 content/
@@ -290,3 +290,5 @@ content/
 
 # Copilot Instructions
 **/.copilot-instructions.md
+# Apple Music session state persisted by the wrapper container
+.devcontainer/rootfs/
