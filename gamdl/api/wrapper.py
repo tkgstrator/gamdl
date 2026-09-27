@@ -12,6 +12,10 @@ from .exceptions import GamdlApiResponseError
 logger = structlog.get_logger(__name__)
 
 TARGET_WRAPPER_API_VERSION = "0.0.2"
+# tkgstrator/wrapper 3.x reports its release number in /me instead of the
+# wrapper-v2 API version, but serves the same /me, /login, /playback and
+# WV2D decrypt contract as wrapper-v2 0.0.2.
+COMPATIBLE_WRAPPER_MAJOR_VERSIONS = ("3",)
 
 T = TypeVar("T")
 
@@ -85,10 +89,16 @@ class WrapperApi:
         version = me.get("version")
         if version == TARGET_WRAPPER_API_VERSION:
             return
+        if (
+            isinstance(version, str)
+            and version.split(".", 1)[0] in COMPATIBLE_WRAPPER_MAJOR_VERSIONS
+        ):
+            return
 
         raise GamdlApiResponseError(
             f"Unsupported wrapper-v2 API version. "
-            f"gamdl requires wrapper-v2 {TARGET_WRAPPER_API_VERSION}",
+            f"gamdl requires wrapper-v2 {TARGET_WRAPPER_API_VERSION} "
+            f"or wrapper {'/'.join(COMPATIBLE_WRAPPER_MAJOR_VERSIONS)}.x",
             content={"detected_version": version},
         )
 
