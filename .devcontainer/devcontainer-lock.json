@@ -40,11 +40,6 @@
       "resolved": "ghcr.io/dhoeric/features/act@sha256:2e99eed677768dff36de20e856f2f6fd285a30ea868dae229e848a2871c4462d",
       "integrity": "sha256:2e99eed677768dff36de20e856f2f6fd285a30ea868dae229e848a2871c4462d"
     },
-    "ghcr.io/jsburckhardt/devcontainer-features/tmux:2": {
-      "version": "2.0.0",
-      "resolved": "ghcr.io/jsburckhardt/devcontainer-features/tmux@sha256:65d1809a7e1b03b3a5d272443b5ab1832ed795439aec0ed3c655c73856bc6c8a",
-      "integrity": "sha256:65d1809a7e1b03b3a5d272443b5ab1832ed795439aec0ed3c655c73856bc6c8a"
-    },
     "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
       "version": "1.0.2",
       "resolved": "ghcr.io/rocker-org/devcontainer-features/apt-packages@sha256:87a4d7750a596a5db034ba8508782f31aebdc2ffe955c66aaecb33d9de2ecdae",
