@@ -15,7 +15,7 @@ services:
     stdin_open: true
 
   wrapper:
-    image: ghcr.io/tkgstrator/wrapper:v2.0.0
+    image: ghcr.io/tkgstrator/wrapper:v3.0.0
     volumes:
       - ./rootfs/data:/app/rootfs/data:cached
     cap_add:
@@ -24,6 +24,11 @@ services:
       - SYS_PTRACE
     security_opt:
       - apparmor:unconfined
+    environment:
+      # Sign in on startup when the cached Apple session cannot be restored.
+      # Values come from .devcontainer/.env (see .env.example).
+      WRAPPER_USERNAME: ${USERNAME:-}
+      WRAPPER_PASSWORD: ${PASSWORD:-}
     restart: unless-stopped
 
 volumes:

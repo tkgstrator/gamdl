@@ -10,10 +10,10 @@
 		"ANTHROPIC_AUTH_TOKEN": "${localEnv:ANTHROPIC_AUTH_TOKEN}",
 		"WAKATIME_API_KEY": "${localEnv:WAKATIME_API_KEY}",
 		"OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
-		"OPENAI_BASE_URL": "${localEnv:OPENAI_BASE_URL}",
-		"AGENTS_SESSION": "${localWorkspaceFolderBasename}"
+		"OPENAI_BASE_URL": "${localEnv:OPENAI_BASE_URL}"
 	},
 	"containerEnv": {
+		"CLAUDE_CODE_AUTO_MODE_SERVER": "0",
 		"CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
 		"UV_LINK_MODE": "copy",
 		"UV_PROJECT_ENVIRONMENT": "/home/vscode/app/.venv",
@@ -43,7 +43,6 @@
 		"ghcr.io/thamaji/devcontainer-features/codex-cli:1": {
 			"VERSION": "latest"
 		},
-		"ghcr.io/jsburckhardt/devcontainer-features/tmux:2": {},
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
 			"moby": false,
 			"dockerDashComposeVersion": "v2"
