@@ -386,12 +386,13 @@ Currently, I'm not interested in reviewing pull requests that change or add feat
 
 ## Development in this repository
 
-Upstream source: [glomatico/gamdl](https://github.com/glomatico/gamdl), version 3.8.5,
-commit `478c3f26464b499f3a6b875c4ceb1d3c9fc2eefc`. The application source is imported from this revision. The Cargo configuration enables
+Upstream source: [glomatico/gamdl](https://github.com/glomatico/gamdl), version 3.9.1,
+commit `bc3bcd25ed61dcdb78c28ffb0ef32053b618c7e3`. The application source is imported from this revision. The Cargo configuration enables
 `extension-module` through Maturin only, so Rust unit tests can link to Python.
 This repository retains its Docker, devcontainer, and branch/deployment workflows.
 The lockfile updates pywidevine to 1.9.0 and protobuf to 6.33.6 for Python 3.14
-compatibility; other runtime dependencies retain their upstream locked versions.
+compatibility and resolves platformdirs (required by pyplayready) to 4.12.0; other
+runtime dependencies retain their upstream locked versions.
 
 ### Local patches to the imported source
 
@@ -400,16 +401,22 @@ kept as local patches and are expected to conflict on the next upstream sync:
 
 1. **`song_codec_piority` renamed to `song_codec_priority`** — upstream misspells the
    `CliConfig` field, which makes the config file key disagree with the
-   `--song-codec-priority` flag. Three call sites in `gamdl/cli/`. Note that gamdl
-   rewrites the config file on every run: unknown keys are dropped and missing ones are
-   re-added with their defaults, so this rename resets an existing `song_codec_piority`
-   entry to the default codec.
+   `--song-codec-priority` flag. Three call sites in `gamdl/cli/`. gamdl rewrites the
+   config file on every run and drops unknown keys, so `ConfigFile` first moves an
+   upstream `song_codec_piority` entry to `song_codec_priority`
+   (`LEGACY_CONFIG_FILE_PARAMS`). Without that step the entry would be reset to the
+   default codec. If both keys are present, `song_codec_priority` wins.
 2. **`--synced-lyrics-format` accepts a comma-separated list** — reuses the existing
    `Csv` param type so `lrc,srt,ttml` writes all three files per track. `Lyrics.synced`
    is a `dict[SyncedLyricsFormat, str]` and `DownloadItem.synced_lyrics_paths` a dict of
    paths; each format is written only when missing, so adding a format later backfills
    just that one. A single value such as `lrc` keeps working, and the default is
    unchanged.
+3. **The wrapper `/me` version check also accepts tkgstrator/wrapper 3.x** —
+   upstream requires `version` to be exactly `0.0.2` (wrapper-v2). tkgstrator/wrapper
+   3.x reports its own release number there but serves the same `/me`, `/login`,
+   `/playback` and WV2D decrypt contract, so `COMPATIBLE_WRAPPER_MAJOR_VERSIONS` in
+   `gamdl/api/wrapper.py` lets major `3` through.
 
 Local development requires Python 3.10 or newer, uv, and a Rust toolchain with a C linker.
 Run `uv sync --locked`, then `uv run gamdl --help`. The native extension is built during sync.

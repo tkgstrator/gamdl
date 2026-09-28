@@ -7,7 +7,7 @@ import click
 import click.types as click_types
 
 from .cli_config import CliConfig
-from .constants import EXCLUDED_CONFIG_FILE_PARAMS
+from .constants import EXCLUDED_CONFIG_FILE_PARAMS, LEGACY_CONFIG_FILE_PARAMS
 from .utils import Csv
 
 
@@ -111,6 +111,22 @@ class ConfigFile:
         if has_changes:
             self._write_config_file()
 
+    def migrate_legacy_params(self) -> None:
+        section = self.config[self.section_name]
+        has_changes = False
+
+        for legacy_name, name in LEGACY_CONFIG_FILE_PARAMS.items():
+            if legacy_name not in section:
+                continue
+
+            if name not in section:
+                section[name] = section[legacy_name]
+            self.config.remove_option(self.section_name, legacy_name)
+            has_changes = True
+
+        if has_changes:
+            self._write_config_file()
+
     def cleanup_unknown_params(self) -> None:
         param_names = {info.name for info in self.click_context.command.params}
         has_changes = False
@@ -148,6 +164,7 @@ class ConfigFile:
         return CliConfig(**config_dict)
 
     def load(self) -> CliConfig:
+        self.migrate_legacy_params()
         self.cleanup_unknown_params()
         self.add_params_default_to_config()
         self.update_params_from_config()
