@@ -386,25 +386,31 @@ Currently, I'm not interested in reviewing pull requests that change or add feat
 
 ## Development in this repository
 
-Upstream source: [glomatico/gamdl](https://github.com/glomatico/gamdl), version 3.8.5,
-commit `478c3f26464b499f3a6b875c4ceb1d3c9fc2eefc`. The application source is imported from this revision. The Cargo configuration enables
+Upstream source: [glomatico/gamdl](https://github.com/glomatico/gamdl), version 3.9.1,
+commit `bc3bcd25ed61dcdb78c28ffb0ef32053b618c7e3`. The application source is imported from this revision. The Cargo configuration enables
 `extension-module` through Maturin only, so Rust unit tests can link to Python.
 This repository retains its Docker, devcontainer, and branch/deployment workflows.
 The lockfile updates pywidevine to 1.9.0 and protobuf to 6.33.6 for Python 3.14
-compatibility; other runtime dependencies retain their upstream locked versions.
+compatibility, and resolves platformdirs (a pyplayready dependency) to 4.12.0 instead
+of 4.11.11; other runtime dependencies retain their upstream locked versions.
 
 ### Local patches to the imported source
 
 Upstream states in its README that it only reviews critical bug fixes, so these are
 kept as local patches and are expected to conflict on the next upstream sync:
 
-1. **`song_codec_piority` renamed to `song_codec_priority`** — upstream misspells the
+1. **tkgstrator/wrapper 3.x accepted by the `/me` version check** — upstream requires
+   the wrapper-v2 API version to be exactly `0.0.2`. tkgstrator/wrapper 3.x reports its
+   release number (for example `3.0.0`) instead but serves the same `/me`, `/login`,
+   `/playback` and WV2D decrypt contract, so `gamdl/api/wrapper.py` also accepts a
+   major version of `3`.
+2. **`song_codec_piority` renamed to `song_codec_priority`** — upstream misspells the
    `CliConfig` field, which makes the config file key disagree with the
    `--song-codec-priority` flag. Three call sites in `gamdl/cli/`. Note that gamdl
    rewrites the config file on every run: unknown keys are dropped and missing ones are
    re-added with their defaults, so this rename resets an existing `song_codec_piority`
    entry to the default codec.
-2. **`--synced-lyrics-format` accepts a comma-separated list** — reuses the existing
+3. **`--synced-lyrics-format` accepts a comma-separated list** — reuses the existing
    `Csv` param type so `lrc,srt,ttml` writes all three files per track. `Lyrics.synced`
    is a `dict[SyncedLyricsFormat, str]` and `DownloadItem.synced_lyrics_paths` a dict of
    paths; each format is written only when missing, so adding a format later backfills
