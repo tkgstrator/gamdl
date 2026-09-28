@@ -6,7 +6,7 @@ import m3u8
 import structlog
 
 from .base import AppleMusicBaseInterface
-from .constants import MP4_FORMAT_CODECS
+from .constants import MP4_FORMAT_CODECS, MUSIC_VIDEO_STEREO_AUDIO_PRIORITY
 from .enums import MediaRating, MediaType, MusicVideoCodec, MusicVideoResolution
 from .exceptions import (
     GamdlInterfaceDecryptionNotAvailableError,
@@ -128,7 +128,6 @@ class AppleMusicMusicVideoInterface:
             media_type=MediaType.MUSIC_VIDEO,
             storefront=self.base.itunes_api.storefront_id,
             title=lookup_metadata[0]["trackName"],
-            title_sort=lookup_metadata[0]["trackCensoredName"],
             title_id=int(metadata["id"]),
             rating=rating,
         )
@@ -141,7 +140,6 @@ class AppleMusicMusicVideoInterface:
                 return tags
 
             tags.album = lookup_metadata[1]["collectionName"]
-            tags.album_sort = lookup_metadata[1]["collectionCensoredName"]
             tags.album_artist = lookup_metadata[1]["artistName"]
             tags.album_id = int(itunes_page_metadata["collectionId"])
             tags.disc = lookup_metadata[0]["discNumber"]
@@ -260,15 +258,19 @@ class AppleMusicMusicVideoInterface:
         self,
         playlist_master_data: dict,
     ) -> dict | None:
-        audio_playlist = next(
-            (
-                media
-                for media in playlist_master_data["media"]
-                if media["group_id"] == "audio-stereo-256"
-            ),
-            None,
-        )
-        return audio_playlist
+        for group_id in MUSIC_VIDEO_STEREO_AUDIO_PRIORITY:
+            audio_playlist = next(
+                (
+                    media
+                    for media in playlist_master_data["media"]
+                    if media.get("group_id") == group_id and media.get("uri")
+                ),
+                None,
+            )
+            if audio_playlist:
+                return audio_playlist
+
+        return None
 
     async def _get_video_playlist_from_user(
         self,
@@ -306,11 +308,12 @@ class AppleMusicMusicVideoInterface:
         self,
         m3u8_obj: m3u8.M3U8,
         key_format: str,
-    ) -> str:
-        return next(
+    ) -> str | None:
+        key = next(
             (key for key in m3u8_obj.keys if key.keyformat == key_format),
             None,
-        ).uri
+        )
+        return key.uri if key else None
 
     def _get_widevine_pssh(self, m3u8_obj: m3u8.M3U8) -> str:
         return self._get_key_by_format(
@@ -415,13 +418,18 @@ class AppleMusicMusicVideoInterface:
         self,
         stream_info: StreamInfoAv,
     ) -> DecryptionKeyAv:
+        video_pssh = self.base.get_drm_pssh(stream_info.video_track)
+        audio_pssh = self.base.get_drm_pssh(stream_info.audio_track)
+        if not video_pssh or not audio_pssh:
+            raise GamdlInterfaceDecryptionNotAvailableError(stream_info.media_id)
+
         decryption_key_video, decryption_key_audio = await asyncio.gather(
             self.base.get_decryption_key(
-                stream_info.video_track.widevine_pssh,
+                video_pssh,
                 stream_info.media_id,
             ),
             self.base.get_decryption_key(
-                stream_info.audio_track.widevine_pssh,
+                audio_pssh,
                 stream_info.media_id,
             ),
         )
@@ -491,12 +499,6 @@ class AppleMusicMusicVideoInterface:
             media.media_id,
             m3u8_master_url,
         )
-
-        if (
-            not media.stream_info.video_track.widevine_pssh
-            or not media.stream_info.audio_track.widevine_pssh
-        ):
-            raise GamdlInterfaceDecryptionNotAvailableError(media.media_id)
 
         media.decryption_key = await self.get_decryption_key(media.stream_info)
 
