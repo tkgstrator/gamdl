@@ -507,9 +507,9 @@ class AppleMusicSongInterface:
     def _get_drm_uri_from_m3u8_keys(
         self,
         m3u8_obj: m3u8.M3U8,
-        drm_key: str,
+        drm_key: str | None,
     ) -> str | None:
-        default_uri = DRM_DEFAULT_KEY_MAPPING[drm_key]
+        default_uri = DRM_DEFAULT_KEY_MAPPING.get(drm_key)
 
         for key in m3u8_obj.keys:
             if key.keyformat == drm_key and key.uri != default_uri:
@@ -547,9 +547,20 @@ class AppleMusicSongInterface:
         )
 
         if stream_info.use_cenc:
-            stream_info.widevine_pssh = m3u8_obj.keys[0].uri
+            untyped_drm_uri = self._get_drm_uri_from_m3u8_keys(m3u8_obj, None)
+            stream_info.widevine_pssh = self._get_drm_uri_from_m3u8_keys(
+                m3u8_obj,
+                "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed",
+            ) or untyped_drm_uri
+            stream_info.playready_pssh = self._get_drm_uri_from_m3u8_keys(
+                m3u8_obj,
+                "com.microsoft.playready",
+            ) or untyped_drm_uri
         else:
-            stream_info.fairplay_key = m3u8_obj.keys[0].uri
+            stream_info.fairplay_key = self._get_drm_uri_from_m3u8_keys(
+                m3u8_obj,
+                "com.apple.streamingkeydelivery",
+            )
 
         stream_info_av = StreamInfoAv(
             media_id=webplayback["songList"][0]["songId"],
@@ -670,21 +681,22 @@ class AppleMusicSongInterface:
                 playback,
             )
 
-            if media.stream_info.audio_track.drm_free:
-                pass
-            elif (
-                not self.base.wrapper_api
-                and not media.stream_info.audio_track.widevine_pssh
-            ) or (
+            audio_track = media.stream_info.audio_track
+            drm_pssh = self.base.get_drm_pssh(audio_track)
+            use_wrapper_decryption = bool(
                 self.base.wrapper_api
-                and not media.stream_info.audio_track.fairplay_key
-                and not media.stream_info.audio_track.use_cenc
-            ):
+                and audio_track.fairplay_key
+                and not audio_track.use_cenc
+            )
+
+            if audio_track.drm_free or use_wrapper_decryption:
+                pass
+            elif not drm_pssh:
                 raise GamdlInterfaceDecryptionNotAvailableError(media_id=media.media_id)
-            elif media.stream_info.audio_track.widevine_pssh:
+            else:
                 media.decryption_key = DecryptionKeyAv(
                     audio_track=await self.base.get_decryption_key(
-                        media.stream_info.audio_track.widevine_pssh,
+                        drm_pssh,
                         media.media_id,
                     )
                 )
