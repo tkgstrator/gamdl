@@ -124,34 +124,283 @@ jobs:
   build-smoke:
     if: ${{ !cancelled() && (true) }}
     needs: ["ci-change-scope"]
-    name: docker build smoke (no push)
+    name: ${{ matrix.python-version == '3.10' && matrix.base-image == 'bookworm-slim' && 'docker build smoke (no push)' || format('docker build smoke (amd64, Python {0}, {1})', matrix.python-version, matrix.base-image) }}
     runs-on: ${{ fromJSON((needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true') && '"ubuntu-latest"' || '"ubuntu-latest"') }}
+    timeout-minutes: 60
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      # One AMD64 and one native ARM64 build at a time across these jobs.
+      max-parallel: 1
+      matrix:
+        python-version: ["3.10", "3.14"]
+        base-image: ["bookworm-slim", "trixie-slim"]
+    env:
+      RUNTIME_ARCH: amd64
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      BASE_IMAGE: ${{ matrix.base-image }}
+      IMAGE: gamdl-ci:${{ github.run_id }}-${{ github.run_attempt }}-amd64-${{ matrix.python-version }}-${{ matrix.base-image }}
+      BUILDER: gamdl-${{ github.run_id }}-${{ github.run_attempt }}-amd64-${{ matrix.python-version }}-${{ matrix.base-image }}
+      EVIDENCE_NAME: gamdl-hls-amd64-${{ matrix.python-version }}-${{ matrix.base-image }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Checkout repository
-        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
-        uses: actions/checkout@v6
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Record immutable inputs and native runner preflight
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export EVIDENCE_DIR="$RUNNER_TEMP/$EVIDENCE_NAME"
+          printf 'EVIDENCE_DIR=%s\n' "$EVIDENCE_DIR" >> "$GITHUB_ENV"
+          version=$(python3 -c 'import tomllib; from pathlib import Path; print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])')
+          printf 'GAMDL_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+          python3 scripts/verify-container-hls.py --prepare --require-linux-host \
+            --expected-version "$version" --expected-arch "$RUNTIME_ARCH" \
+            --python-version "$PYTHON_VERSION" --base-image "$BASE_IMAGE" --evidence-dir "$EVIDENCE_DIR"
 
       - name: Set up QEMU
-        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
-        uses: docker/setup-qemu-action@v4
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
-      - name: Set up Docker Buildx
-        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
-        uses: docker/setup-buildx-action@v4
+      - name: Set up dedicated Docker Buildx
+        id: buildx
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+        with:
+          name: ${{ env.BUILDER }}
 
       - name: Build image (linux/amd64, no push)
-        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
-        uses: docker/build-push-action@v7
+        id: build
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        env:
+          BUILDX_METADATA_PROVENANCE: max
         with:
+          builder: ${{ steps.buildx.outputs.name }}
           context: .
           platforms: linux/amd64
           push: false
           load: true
-          tags: gamdl:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ env.IMAGE }}
+          build-args: |
+            PYTHON_VERSION=${{ env.PYTHON_VERSION }}
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+          # Preserve the original default AMD64 cache; other variants do not export it.
+          cache-from: ${{ matrix.python-version == '3.10' && matrix.base-image == 'bookworm-slim' && 'type=gha' || '' }}
+          cache-to: ${{ matrix.python-version == '3.10' && matrix.base-image == 'bookworm-slim' && 'type=gha,mode=max' || '' }}
+
+      - name: Retain build metadata and reclaim only this builder cache
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        shell: bash
+        env:
+          BUILD_METADATA: ${{ steps.build.outputs.metadata }}
+          BUILD_IMAGE_ID: ${{ steps.build.outputs.imageid }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+          evidence = Path(os.environ["EVIDENCE_DIR"])
+          (evidence / "build-metadata.json").write_text(json.dumps({
+              "metadata": json.loads(os.environ["BUILD_METADATA"]),
+              "imageId": os.environ["BUILD_IMAGE_ID"], "digest": os.environ["BUILD_DIGEST"],
+          }, indent=2) + "\n")
+          PYTHON
+          docker buildx prune --builder "$BUILDER" --all --force
+
+      - name: Verify both CLIs and offline synthetic HLS output
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/verify-container-hls.py --image "$IMAGE" --require-linux-host \
+            --expected-version "$GAMDL_VERSION" --expected-arch "$RUNTIME_ARCH" \
+            --python-version "$PYTHON_VERSION" --base-image "$BASE_IMAGE" --evidence-dir "$EVIDENCE_DIR"
+
+      - name: Summarize retained verification evidence
+        if: ${{ always() && (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+          evidence = Path(os.environ["RUNNER_TEMP"]) / os.environ["EVIDENCE_NAME"]
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+              summary.write("### Native container verification\n")
+              for name in ("preflight.json", "result.json", "runtime/result.json"):
+                  path = evidence / name
+                  state = json.loads(path.read_text()).get("status", "UNKNOWN") if path.exists() else "NOT_RUN"
+                  summary.write(f"- {name}: {state}\n")
+          PYTHON
+
+      - name: Upload verification records
+        if: ${{ always() && (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: container-hls-amd64-${{ matrix.python-version }}-${{ matrix.base-image }}
+          path: ${{ runner.temp }}/${{ env.EVIDENCE_NAME }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove only this job's loaded image
+        if: ${{ always() && (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            docker image rm "$IMAGE"
+          fi
+
+      - name: Docs-only exemption
+        if: ${{ needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true' }}
+        shell: bash
+        working-directory: .
+        env:
+          CI_CHANGE_REASON: ${{ needs['ci-change-scope'].outputs.reason }}
+        run: |
+          printf '%s\n' "$CI_CHANGE_REASON" >> "$GITHUB_STEP_SUMMARY"
+
+  build-smoke-arm64:
+    if: ${{ !cancelled() && (true) }}
+    needs: ["ci-change-scope"]
+    name: native ARM64 HLS (Python ${{ matrix.python-version }}, ${{ matrix.base-image }})
+    runs-on: ${{ fromJSON((needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true') && '"ubuntu-latest"' || '"ubuntu-24.04-arm"') }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # One AMD64 and one native ARM64 build at a time across these jobs.
+      max-parallel: 1
+      matrix:
+        python-version: ["3.10", "3.14"]
+        base-image: ["bookworm-slim", "trixie-slim"]
+    env:
+      RUNTIME_ARCH: arm64
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      BASE_IMAGE: ${{ matrix.base-image }}
+      IMAGE: gamdl-ci:${{ github.run_id }}-${{ github.run_attempt }}-arm64-${{ matrix.python-version }}-${{ matrix.base-image }}
+      BUILDER: gamdl-${{ github.run_id }}-${{ github.run_attempt }}-arm64-${{ matrix.python-version }}-${{ matrix.base-image }}
+      EVIDENCE_NAME: gamdl-hls-arm64-${{ matrix.python-version }}-${{ matrix.base-image }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout repository
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Record immutable inputs and native runner preflight
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export EVIDENCE_DIR="$RUNNER_TEMP/$EVIDENCE_NAME"
+          printf 'EVIDENCE_DIR=%s\n' "$EVIDENCE_DIR" >> "$GITHUB_ENV"
+          version=$(python3 -c 'import tomllib; from pathlib import Path; print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])')
+          printf 'GAMDL_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+          python3 scripts/verify-container-hls.py --prepare --require-linux-host \
+            --expected-version "$version" --expected-arch "$RUNTIME_ARCH" \
+            --python-version "$PYTHON_VERSION" --base-image "$BASE_IMAGE" --evidence-dir "$EVIDENCE_DIR"
+
+      - name: Set up dedicated Docker Buildx
+        id: buildx
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+        with:
+          name: ${{ env.BUILDER }}
+
+      - name: Build image (linux/arm64, no push)
+        id: build
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        env:
+          BUILDX_METADATA_PROVENANCE: max
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: ${{ env.IMAGE }}
+          build-args: |
+            PYTHON_VERSION=${{ env.PYTHON_VERSION }}
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+          # No GHA cache export: keep the native ARM64 runner's bounded disk usage.
+
+      - name: Retain build metadata and reclaim only this builder cache
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        shell: bash
+        env:
+          BUILD_METADATA: ${{ steps.build.outputs.metadata }}
+          BUILD_IMAGE_ID: ${{ steps.build.outputs.imageid }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+          evidence = Path(os.environ["EVIDENCE_DIR"])
+          (evidence / "build-metadata.json").write_text(json.dumps({
+              "metadata": json.loads(os.environ["BUILD_METADATA"]),
+              "imageId": os.environ["BUILD_IMAGE_ID"], "digest": os.environ["BUILD_DIGEST"],
+          }, indent=2) + "\n")
+          PYTHON
+          docker buildx prune --builder "$BUILDER" --all --force
+
+      - name: Verify both CLIs and offline synthetic HLS output
+        if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/verify-container-hls.py --image "$IMAGE" --require-linux-host \
+            --expected-version "$GAMDL_VERSION" --expected-arch "$RUNTIME_ARCH" \
+            --python-version "$PYTHON_VERSION" --base-image "$BASE_IMAGE" --evidence-dir "$EVIDENCE_DIR"
+
+      - name: Summarize retained verification evidence
+        if: ${{ always() && (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+          evidence = Path(os.environ["RUNNER_TEMP"]) / os.environ["EVIDENCE_NAME"]
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+              summary.write("### Native container verification\n")
+              for name in ("preflight.json", "result.json", "runtime/result.json"):
+                  path = evidence / name
+                  state = json.loads(path.read_text()).get("status", "UNKNOWN") if path.exists() else "NOT_RUN"
+                  summary.write(f"- {name}: {state}\n")
+          PYTHON
+
+      - name: Upload verification records
+        if: ${{ always() && (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: container-hls-arm64-${{ matrix.python-version }}-${{ matrix.base-image }}
+          path: ${{ runner.temp }}/${{ env.EVIDENCE_NAME }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove only this job's loaded image
+        if: ${{ always() && (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            docker image rm "$IMAGE"
+          fi
 
       - name: Docs-only exemption
         if: ${{ needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true' }}
