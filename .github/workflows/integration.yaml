@@ -12,6 +12,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  ci-change-scope:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci-change-scope.yaml
+    with:
+      doc-paths: '["AGENTS.md","CLAUDE.md","docs/development/ci-change-scope.md"]'
+      doc-prefixes: '[]'
+      runner: '"ubuntu-latest"'
+
   lint-actions:
     name: actionlint
     runs-on: ubuntu-latest
@@ -74,8 +83,10 @@ jobs:
           uv run --locked ruff check --isolated gamdl --select E9,F63,F7,F82
 
   test-native:
+    if: ${{ !cancelled() && (true) }}
+    needs: ["ci-change-scope"]
     name: Rust tests and CLI smoke test (${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true') && '"ubuntu-latest"' || '"ubuntu-latest"') }}
     strategy:
       matrix:
         python-version: ["3.10", "3.14"]
@@ -85,33 +96,53 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
       - uses: astral-sh/setup-uv@v8.2.0
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
       - uses: dtolnay/rust-toolchain@stable
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
       - run: uv sync --locked
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
       - run: uv run --locked python -m gamdl --help
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
       - name: Test native extension
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
         run: |
           export PYO3_PYTHON="$PWD/.venv/bin/python"
           LD_LIBRARY_PATH="$(uv run --locked python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export LD_LIBRARY_PATH
           cargo test --locked --manifest-path gamdl/downloader/ammuxer/Cargo.toml
 
+      - name: Docs-only exemption
+        if: ${{ needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true' }}
+        shell: bash
+        working-directory: .
+        env:
+          CI_CHANGE_REASON: ${{ needs['ci-change-scope'].outputs.reason }}
+        run: |
+          printf '%s\n' "$CI_CHANGE_REASON" >> "$GITHUB_STEP_SUMMARY"
   build-smoke:
+    if: ${{ !cancelled() && (true) }}
+    needs: ["ci-change-scope"]
     name: docker build smoke (no push)
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true') && '"ubuntu-latest"' || '"ubuntu-latest"') }}
     permissions:
       contents: read
     steps:
       - name: Checkout repository
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
         uses: actions/checkout@v6
 
       - name: Set up QEMU
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
         uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
         uses: docker/setup-buildx-action@v4
 
       - name: Build image (linux/amd64, no push)
+        if: ${{ (needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true') }}
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -121,3 +152,12 @@ jobs:
           tags: gamdl:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Docs-only exemption
+        if: ${{ needs['ci-change-scope'].result == 'success' && needs['ci-change-scope'].outputs.docs_only == 'true' }}
+        shell: bash
+        working-directory: .
+        env:
+          CI_CHANGE_REASON: ${{ needs['ci-change-scope'].outputs.reason }}
+        run: |
+          printf '%s\n' "$CI_CHANGE_REASON" >> "$GITHUB_STEP_SUMMARY"

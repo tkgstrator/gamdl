@@ -6,6 +6,8 @@
 	"shutdownAction": "stopCompose",
 	"remoteUser": "vscode",
 	"remoteEnv": {
+		"CODEX_HOME": "${containerWorkspaceFolder}/.codex",
+		"CLAUDE_CODE_AUTO_MODE_SERVER": "0",
 		"ANTHROPIC_BASE_URL": "${localEnv:ANTHROPIC_BASE_URL}",
 		"ANTHROPIC_AUTH_TOKEN": "${localEnv:ANTHROPIC_AUTH_TOKEN}",
 		"WAKATIME_API_KEY": "${localEnv:WAKATIME_API_KEY}",
@@ -18,7 +20,7 @@
 		"UV_LINK_MODE": "copy",
 		"UV_PROJECT_ENVIRONMENT": "/home/vscode/app/.venv",
 		"VIRTUAL_ENV_DISABLE_PROMPT": "1",
-		"CODEX_HOME": "/home/vscode/.codex",
+		"CODEX_HOME": "${containerWorkspaceFolder}/.codex",
 		"CODEX_MODEL": "${localEnv:CODEX_MODEL}"
 	},
 	"mounts": [
@@ -54,7 +56,7 @@
 		},
 		"ghcr.io/devcontainers-extra/features/ffmpeg-apt-get:1": {},
 		"ghcr.io/devcontainers/features/node:1.5.0": {
-			"version": "26.5.0"
+			"version": "26.12.1"
 		},
 		"ghcr.io/shyim/devcontainers-features/bun:0": {}
 	},
