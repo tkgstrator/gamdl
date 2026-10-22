@@ -81,8 +81,15 @@ FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${BASE_IMAGE}
 RUN \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  set -eu; \
+  . /etc/os-release; \
+  case "${VERSION_CODENAME:-}" in \
+    bookworm) RUNTIME_ICU=libicu72; RUNTIME_SSL=libssl3 ;; \
+    trixie) RUNTIME_ICU=libicu76; RUNTIME_SSL=libssl3t64 ;; \
+    *) echo "Unsupported runtime suite: ${VERSION_CODENAME:-unknown}"; exit 1 ;; \
+  esac; \
   apt-get update && apt-get install -y --no-install-recommends \
-  ffmpeg
+  ffmpeg "${RUNTIME_ICU}" "${RUNTIME_SSL}"
 
 COPY --from=build-dotnet /out/N_m3u8DL-RE /usr/local/bin/
 
