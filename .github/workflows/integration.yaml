@@ -199,7 +199,6 @@ jobs:
         if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
         shell: bash
         env:
-          BUILD_METADATA: ${{ steps.build.outputs.metadata }}
           BUILD_IMAGE_ID: ${{ steps.build.outputs.imageid }}
           BUILD_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
@@ -207,10 +206,37 @@ jobs:
           python3 - <<'PYTHON'
           import json
           import os
+          import re
           from pathlib import Path
+
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit(message)
+
+          # Pinned build-push-action v7 / toolkit 0.100.0 keeps this file until post.
+          # Full max provenance exceeds Linux's per-environment-string size limit.
+          matches = []
+          for path in Path(os.environ["RUNNER_TEMP"]).glob("docker-actions-toolkit-*/build-metadata-*.json"):
+              metadata = json.loads(path.read_text())
+              if (metadata.get("buildx.build.ref", "").split("/")[0] == os.environ["BUILDER"]
+                      and metadata.get("image.name") == "docker.io/library/" + os.environ["IMAGE"]):
+                  matches.append((path, metadata))
+          require(len(matches) == 1, "Expected exactly one metadata file for this builder and image")
+          path, metadata = matches[0]
+          require(metadata["containerimage.descriptor"]["platform"] == {
+              "os": "linux", "architecture": os.environ["RUNTIME_ARCH"],
+          }, "Build metadata platform mismatch")
+          require(metadata["containerimage.config.digest"] == os.environ["BUILD_IMAGE_ID"],
+                  "Build metadata config digest mismatch")
+          require(metadata["containerimage.digest"] == os.environ["BUILD_DIGEST"],
+                  "Build metadata image digest mismatch")
+          materials = metadata["buildx.build.provenance"]["materials"]
+          require(materials and all(material.get("uri") and re.fullmatch(
+              "[0-9a-f]{64}", material.get("digest", {}).get("sha256", ""),
+          ) for material in materials), "Resolved provenance materials missing")
           evidence = Path(os.environ["EVIDENCE_DIR"])
           (evidence / "build-metadata.json").write_text(json.dumps({
-              "metadata": json.loads(os.environ["BUILD_METADATA"]),
+              "metadata": metadata, "metadataFile": str(path),
               "imageId": os.environ["BUILD_IMAGE_ID"], "digest": os.environ["BUILD_DIGEST"],
           }, indent=2) + "\n")
           PYTHON
@@ -341,7 +367,6 @@ jobs:
         if: ${{ needs['ci-change-scope'].result != 'success' || needs['ci-change-scope'].outputs.docs_only != 'true' }}
         shell: bash
         env:
-          BUILD_METADATA: ${{ steps.build.outputs.metadata }}
           BUILD_IMAGE_ID: ${{ steps.build.outputs.imageid }}
           BUILD_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
@@ -349,10 +374,37 @@ jobs:
           python3 - <<'PYTHON'
           import json
           import os
+          import re
           from pathlib import Path
+
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit(message)
+
+          # Pinned build-push-action v7 / toolkit 0.100.0 keeps this file until post.
+          # Full max provenance exceeds Linux's per-environment-string size limit.
+          matches = []
+          for path in Path(os.environ["RUNNER_TEMP"]).glob("docker-actions-toolkit-*/build-metadata-*.json"):
+              metadata = json.loads(path.read_text())
+              if (metadata.get("buildx.build.ref", "").split("/")[0] == os.environ["BUILDER"]
+                      and metadata.get("image.name") == "docker.io/library/" + os.environ["IMAGE"]):
+                  matches.append((path, metadata))
+          require(len(matches) == 1, "Expected exactly one metadata file for this builder and image")
+          path, metadata = matches[0]
+          require(metadata["containerimage.descriptor"]["platform"] == {
+              "os": "linux", "architecture": os.environ["RUNTIME_ARCH"],
+          }, "Build metadata platform mismatch")
+          require(metadata["containerimage.config.digest"] == os.environ["BUILD_IMAGE_ID"],
+                  "Build metadata config digest mismatch")
+          require(metadata["containerimage.digest"] == os.environ["BUILD_DIGEST"],
+                  "Build metadata image digest mismatch")
+          materials = metadata["buildx.build.provenance"]["materials"]
+          require(materials and all(material.get("uri") and re.fullmatch(
+              "[0-9a-f]{64}", material.get("digest", {}).get("sha256", ""),
+          ) for material in materials), "Resolved provenance materials missing")
           evidence = Path(os.environ["EVIDENCE_DIR"])
           (evidence / "build-metadata.json").write_text(json.dumps({
-              "metadata": json.loads(os.environ["BUILD_METADATA"]),
+              "metadata": metadata, "metadataFile": str(path),
               "imageId": os.environ["BUILD_IMAGE_ID"], "digest": os.environ["BUILD_DIGEST"],
           }, indent=2) + "\n")
           PYTHON
