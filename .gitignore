@@ -292,3 +292,6 @@ content/
 **/.copilot-instructions.md
 # Apple Music session state persisted by the wrapper container
 .devcontainer/rootfs/
+
+# Local Codex configuration, credentials, and session state.
+/.codex/
